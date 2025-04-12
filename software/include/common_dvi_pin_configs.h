@@ -80,6 +80,22 @@ static const struct dvi_serialiser_cfg pico_sock_cfg = {
 	.invert_diffpairs = false
 };
 
+static const struct dvi_serialiser_cfg pico_pizero_cfg = {
+	.pio = DVI_DEFAULT_PIO_INST,
+	.sm_tmds = {0, 1, 2},
+	.pins_tmds = {26, 24, 22},
+	.pins_clk = 28,
+	.invert_diffpairs = false
+};
+
+static const struct dvi_serialiser_cfg murmulator_cfg = {
+	.pio = DVI_DEFAULT_PIO_INST,
+	.sm_tmds = {0, 1, 2},
+	.pins_tmds = {8, 10, 12},
+	.pins_clk = 6,
+	.invert_diffpairs = true
+};
+
 // The HDMI socket on Pimoroni Pico Demo HDMI
 // (we would talk about rev B if we had a rev B...)
 static const struct dvi_serialiser_cfg pimoroni_demo_hdmi_cfg = {
