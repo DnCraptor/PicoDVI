@@ -26,9 +26,9 @@
 
 
 // Pick one:
-#define MODE_640x480_60Hz
+//#define MODE_640x480_60Hz
 // #define MODE_720x480_60Hz
-// #define MODE_800x600_60Hz
+ #define MODE_800x600_60Hz
 // #define MODE_960x540p_60Hz
 // #define MODE_1280x720_30Hz
 
@@ -104,29 +104,61 @@ static inline void set_colour(uint x, uint y, uint8_t fg, uint8_t bg) {
 }
 
 #include "tmds_encode.h"
-#include "moon_1bpp_640x480.h"
-#define moon_img moon_1bpp_640x480
-#include "tmds_encode_1bpp.pio.h"
+#include <string.h>
+
+uint32_t bk_page[512 * 256 / 32];
+#define DWORDS_PER_PLANE (FRAME_WIDTH / DVI_SYMBOLS_PER_WORD)
+#define BYTES_PER_PLANE (DWORDS_PER_PLANE * 4)
+uint32_t blank[DWORDS_PER_PLANE * 3];
+uint32_t last[DWORDS_PER_PLANE * 3];
+#define BLACK 0x7fd00
 
 void core1_main() {
+	dvi_init(&dvi0, next_striped_spin_lock_num(), next_striped_spin_lock_num());
     dvi_register_irqs_this_core(&dvi0, DMA_IRQ_0);
     dvi_start(&dvi0);
 
+	for (int i = 0; i < sizeof(bk_page) / 4; ++i) {
+		bk_page[i] = i;
+	}
+    uint32_t *tmdsbuf = 0;
+	for (int i = 0; i < sizeof(blank) / sizeof(blank[0]); ++i) {
+		blank[i] = BLACK;
+	}
     while (true) {
-        for (uint y = 0; y < FRAME_HEIGHT; ++y) {
-			const uint32_t *colourbuf2 = &((const uint32_t*)moon_img)[y * FRAME_WIDTH / 32];
-            uint32_t *tmdsbuf = 0;
+	    const uint32_t* bk_page2 = (const uint32_t*)bk_page;
+        for (uint y = 0; y < (FRAME_HEIGHT - 512) / 2; ++y) {
             queue_remove_blocking_u32(&dvi0.q_tmds_free, &tmdsbuf);
-			int plane = 1;
-			tmds_encode_font_2bpp(
-				(const uint8_t*)&charbuf[y / FONT_CHAR_HEIGHT * CHAR_COLS],
-				(const uint32_t*)(&colourbuf[y / FONT_CHAR_HEIGHT * (COLOUR_PLANE_SIZE_WORDS / CHAR_ROWS) + plane * COLOUR_PLANE_SIZE_WORDS]),
-				(tmdsbuf + plane * (FRAME_WIDTH / DVI_SYMBOLS_PER_WORD)),
-				FRAME_WIDTH,
-				(const uint8_t*)&font_8x8[y % FONT_CHAR_HEIGHT * FONT_N_CHARS] - FONT_FIRST_ASCII
-			);
-			tmds_encode_1bpp(colourbuf2, tmdsbuf, FRAME_WIDTH);
-			tmds_encode_1bpp(colourbuf2, (tmdsbuf + 2 * (FRAME_WIDTH / DVI_SYMBOLS_PER_WORD)), FRAME_WIDTH);
+			memcpy(tmdsbuf, blank, sizeof(blank));
+            queue_add_blocking_u32(&dvi0.q_tmds_valid, &tmdsbuf);
+		}
+        for (uint y = 0; y < 512; ++y) {
+            queue_remove_blocking_u32(&dvi0.q_tmds_free, &tmdsbuf);
+			if (y & 1) { // duplicate each odd from prev. even
+				memcpy(tmdsbuf, last, sizeof(last));
+			} else {
+				/*
+				int plane = 1;
+				uint y2 = y >> 1;
+				tmds_encode_font_2bpp(
+					(const uint8_t*)&charbuf[y2 / FONT_CHAR_HEIGHT * CHAR_COLS],
+					(const uint32_t*)(&colourbuf[y2 / FONT_CHAR_HEIGHT * (COLOUR_PLANE_SIZE_WORDS / CHAR_ROWS) + plane * COLOUR_PLANE_SIZE_WORDS]),
+					(tmdsbuf + plane * (FRAME_WIDTH / DVI_SYMBOLS_PER_WORD)),
+					FRAME_WIDTH,
+					(const uint8_t*)&font_8x8[y2 % FONT_CHAR_HEIGHT * FONT_N_CHARS] - FONT_FIRST_ASCII
+				);
+				*/
+				tmds_encode_1bpp_bk(bk_page2 + (y << 3), tmdsbuf, FRAME_WIDTH);
+				memcpy(tmdsbuf + DWORDS_PER_PLANE, tmdsbuf, BYTES_PER_PLANE);
+				memcpy(tmdsbuf + 2 * DWORDS_PER_PLANE, tmdsbuf, BYTES_PER_PLANE);
+//				tmds_encode_1bpp_bk((const uint32_t*)bk_page, (tmdsbuf + 2 * (FRAME_WIDTH / DVI_SYMBOLS_PER_WORD)), FRAME_WIDTH);
+				memcpy(last, tmdsbuf, sizeof(last));
+			}
+			queue_add_blocking_u32(&dvi0.q_tmds_valid, &tmdsbuf);
+		}
+        for (uint y = 0; y < (FRAME_HEIGHT - 512) / 2; ++y) {
+            queue_remove_blocking_u32(&dvi0.q_tmds_free, &tmdsbuf);
+			memcpy(tmdsbuf, blank, sizeof(blank));
             queue_add_blocking_u32(&dvi0.q_tmds_valid, &tmdsbuf);
 		}
     }
@@ -158,7 +190,6 @@ int __not_in_flash("main") main() {
 
 	dvi0.timing = &DVI_TIMING;
 	dvi0.ser_cfg = DVI_DEFAULT_SERIAL_CONFIG;
-	dvi_init(&dvi0, next_striped_spin_lock_num(), next_striped_spin_lock_num());
 
 	for (uint y = 0; y < CHAR_ROWS; ++y) {
 		for (uint x = 0; x < CHAR_COLS; ++x) {

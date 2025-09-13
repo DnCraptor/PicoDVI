@@ -14,6 +14,8 @@ void tmds_encode_palette_data(const uint32_t *pixbuf, const uint32_t *tmds_palet
 
 // Functions from tmds_encode.S
 
+void tmds_encode_1bpp_bk(const uint32_t *pixbuf, uint32_t *symbuf, size_t n_pix);
+
 void tmds_encode_1bpp(const uint32_t *pixbuf, uint32_t *symbuf, size_t n_pix);
 void tmds_encode_2bpp(const uint32_t *pixbuf, uint32_t *symbuf, size_t n_pix);
 
