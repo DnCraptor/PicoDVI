@@ -79,9 +79,20 @@ extern const struct dvi_timing dvi_timing_800x480p_60hz;
 extern const struct dvi_timing dvi_timing_800x600p_60hz;
 extern const struct dvi_timing dvi_timing_960x540p_60hz;
 extern const struct dvi_timing dvi_timing_1280x720p_30hz;
+// Pixel clock ~40.0 MHz -> TMDS 400.0 MHz
+extern const struct dvi_timing dvi_timing_1024x768p_30hz;
+// 1024x768 @ 40 Hz (progressive)
+extern const struct dvi_timing dvi_timing_1024x768p_40hz;
+
+extern const struct dvi_timing dvi_timing_1024x768p_30hz_cvt;
+extern const struct dvi_timing dvi_timing_1024x768p_30hz_cvt_rb;
+extern const struct dvi_timing dvi_timing_1024x768p_30hz_cvt_rb2;
+extern const struct dvi_timing dvi_timing_1024x768p_60hz_custom;
 
 extern const struct dvi_timing dvi_timing_800x600p_reduced_60hz;
 extern const struct dvi_timing dvi_timing_1280x720p_reduced_30hz;
+
+extern const struct dvi_timing dvi_timing_1600x900p_reduced_30hz;
 
 void dvi_timing_state_init(struct dvi_timing_state *t);
 

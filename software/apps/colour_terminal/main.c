@@ -8,6 +8,7 @@
 #include "hardware/gpio.h"
 #include "hardware/vreg.h"
 #include "hardware/structs/bus_ctrl.h"
+#include <hardware/structs/qmi.h>
 #include "hardware/dma.h"
 #include "pico/sem.h"
 
@@ -102,30 +103,56 @@ static inline void set_colour(uint x, uint y, uint8_t fg, uint8_t bg) {
 	}
 }
 
+#include "tmds_encode.h"
+#include "moon_1bpp_640x480.h"
+#define moon_img moon_1bpp_640x480
+#include "tmds_encode_1bpp.pio.h"
+
 void core1_main() {
-	dvi_register_irqs_this_core(&dvi0, DMA_IRQ_0);
-	dvi_start(&dvi0);
-	while (true) {
-		for (uint y = 0; y < FRAME_HEIGHT; ++y) {
-			uint32_t *tmdsbuf;
-			queue_remove_blocking(&dvi0.q_tmds_free, &tmdsbuf);
-			for (int plane = 0; plane < 3; ++plane) {
-				tmds_encode_font_2bpp(
-					(const uint8_t*)&charbuf[y / FONT_CHAR_HEIGHT * CHAR_COLS],
-					&colourbuf[y / FONT_CHAR_HEIGHT * (COLOUR_PLANE_SIZE_WORDS / CHAR_ROWS) + plane * COLOUR_PLANE_SIZE_WORDS],
-					tmdsbuf + plane * (FRAME_WIDTH / DVI_SYMBOLS_PER_WORD),
-					FRAME_WIDTH,
-					(const uint8_t*)&font_8x8[y % FONT_CHAR_HEIGHT * FONT_N_CHARS] - FONT_FIRST_ASCII
-				);
-			}
-			queue_add_blocking(&dvi0.q_tmds_valid, &tmdsbuf);
+    dvi_register_irqs_this_core(&dvi0, DMA_IRQ_0);
+    dvi_start(&dvi0);
+
+    while (true) {
+        for (uint y = 0; y < FRAME_HEIGHT; ++y) {
+			const uint32_t *colourbuf2 = &((const uint32_t*)moon_img)[y * FRAME_WIDTH / 32];
+            uint32_t *tmdsbuf = 0;
+            queue_remove_blocking_u32(&dvi0.q_tmds_free, &tmdsbuf);
+			int plane = 1;
+			tmds_encode_font_2bpp(
+				(const uint8_t*)&charbuf[y / FONT_CHAR_HEIGHT * CHAR_COLS],
+				(const uint32_t*)(&colourbuf[y / FONT_CHAR_HEIGHT * (COLOUR_PLANE_SIZE_WORDS / CHAR_ROWS) + plane * COLOUR_PLANE_SIZE_WORDS]),
+				(tmdsbuf + plane * (FRAME_WIDTH / DVI_SYMBOLS_PER_WORD)),
+				FRAME_WIDTH,
+				(const uint8_t*)&font_8x8[y % FONT_CHAR_HEIGHT * FONT_N_CHARS] - FONT_FIRST_ASCII
+			);
+			tmds_encode_1bpp(colourbuf2, tmdsbuf, FRAME_WIDTH);
+			tmds_encode_1bpp(colourbuf2, (tmdsbuf + 2 * (FRAME_WIDTH / DVI_SYMBOLS_PER_WORD)), FRAME_WIDTH);
+            queue_add_blocking_u32(&dvi0.q_tmds_valid, &tmdsbuf);
 		}
+    }
+}
+
+void __not_in_flash() flash_timings() {
+	const int max_flash_freq = 88 * MHZ;
+	const int clock_hz = DVI_TIMING.bit_clk_khz * 1000;
+	int divisor = (clock_hz + max_flash_freq - 1) / max_flash_freq;
+	if (divisor == 1 && clock_hz > 100000000) {
+		divisor = 2;
 	}
+	int rxdelay = divisor;
+	if (clock_hz / divisor > 100000000) {
+		rxdelay += 1;
+	}
+	qmi_hw->m[0].timing = 0x60007000 |
+						rxdelay << QMI_M0_TIMING_RXDELAY_LSB |
+						divisor << QMI_M0_TIMING_CLKDIV_LSB;
 }
 
 int __not_in_flash("main") main() {
+	vreg_disable_voltage_limit();
 	vreg_set_voltage(VREG_VSEL);
-	sleep_ms(10);
+    flash_timings();
+    sleep_ms(100);
 	// Run system at TMDS bit clock
 	set_sys_clock_khz(DVI_TIMING.bit_clk_khz, true);
 
@@ -142,6 +169,16 @@ int __not_in_flash("main") main() {
 
 	hw_set_bits(&bus_ctrl_hw->priority, BUSCTRL_BUS_PRIORITY_PROC1_BITS);
 	multicore_launch_core1(core1_main);
+
+    gpio_init(PICO_DEFAULT_LED_PIN);
+    gpio_set_dir(PICO_DEFAULT_LED_PIN, GPIO_OUT);
+    /// main test DONE signal
+    for (int i = 0; i < 6; i++) {
+        sleep_ms(100);
+        gpio_put(PICO_DEFAULT_LED_PIN, true);
+        sleep_ms(100);
+        gpio_put(PICO_DEFAULT_LED_PIN, false);
+    }
 
 	while (1)
 		__wfi();

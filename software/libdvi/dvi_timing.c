@@ -137,6 +137,124 @@ const struct dvi_timing __dvi_const(dvi_timing_1280x720p_30hz) = {
 	.bit_clk_khz       = 372000
 };
 
+// 1024x768 @ 40 Hz (progressive)
+const struct dvi_timing __dvi_const(dvi_timing_1024x768p_40hz) = {
+	.h_sync_polarity   = true,
+	.h_front_porch     = 24,
+	.h_sync_width      = 136,
+	.h_back_porch      = 160,
+	.h_active_pixels   = 1024,
+
+	.v_sync_polarity   = true,
+	.v_front_porch     = 3,
+	.v_sync_width      = 6,
+	.v_back_porch      = 29,
+	.v_active_lines    = 768,
+
+	.bit_clk_khz       = 432000 ///433306  // 40 * (1344*806) = 43.33056 MHz -> 433306
+};
+
+// XGA 1024x768 @ 30 Hz (progressive, CVT-like timing)
+// Pixel clock ~40.0 MHz -> TMDS 400.0 MHz
+const struct dvi_timing __dvi_const(dvi_timing_1024x768p_30hz) = {
+    .h_sync_polarity   = true,
+    .h_front_porch     = 24,
+    .h_sync_width      = 136,
+    .h_back_porch      = 160,
+    .h_active_pixels   = 1024,
+
+    .v_sync_polarity   = true,
+    .v_front_porch     = 3,
+    .v_sync_width      = 6,
+    .v_back_porch      = 29,
+    .v_active_lines    = 768,
+
+    .bit_clk_khz       = 400000
+};
+
+const struct dvi_timing __dvi_const(dvi_timing_1024x768p_30hz_cvt) = {
+    .h_sync_polarity   = false,
+    .h_front_porch     = 32,
+    .h_sync_width      = 96,
+    .h_back_porch      = 128,
+    .h_active_pixels   = 1024,
+
+    .v_sync_polarity   = true,
+    .v_front_porch     = 3,
+    .v_sync_width      = 4,
+    .v_back_porch      = 9,
+    .v_active_lines    = 768,
+
+    .bit_clk_khz       = 300000
+};
+
+// CVT-RB (27.5 MHz пиксельный клок, TMDS = 275 MHz)
+const struct dvi_timing __dvi_const(dvi_timing_1024x768p_30hz_cvt_rb) = {
+    .h_sync_polarity   = true,
+    .h_front_porch     = 48,
+    .h_sync_width      = 32,
+    .h_back_porch      = 80,
+    .h_active_pixels   = 1024,
+
+    .v_sync_polarity   = false,
+    .v_front_porch     = 3,
+    .v_sync_width      = 4,
+    .v_back_porch      = 6,
+    .v_active_lines    = 768,
+
+    .bit_clk_khz       = 276000 // 275000
+};
+
+const struct dvi_timing __dvi_const(dvi_timing_1024x768p_30hz_cvt_rb2) = {
+    .h_sync_polarity   = true,
+    .h_front_porch     = 8,
+    .h_sync_width      = 32,
+    .h_back_porch      = 40,
+    .h_active_pixels   = 1024,
+
+    .v_sync_polarity   = false,
+    .v_front_porch     = 1,
+    .v_sync_width      = 8,
+    .v_back_porch      = 6,
+    .v_active_lines    = 768,
+
+    .bit_clk_khz       = 260000 // 259320
+};
+
+// 1024x768 @ 60 Hz (Custom, чуть выше лимита 500 MHz)
+const struct dvi_timing __dvi_const(dvi_timing_1024x768p_60hz_custom) = {
+    .h_sync_polarity   = true,   // +HSync
+    .h_front_porch     = 8,      // 1032 - 1024
+    .h_sync_width      = 32,     // 1064 - 1032
+    .h_back_porch      = 40,     // 1104 - 1064
+    .h_active_pixels   = 1024,
+
+    .v_sync_polarity   = false,  // -VSync
+    .v_front_porch     = 8,      // 776 - 768
+    .v_sync_width      = 8,      // 784 - 776
+    .v_back_porch      = 6,      // 790 - 784
+    .v_active_lines    = 768,
+
+    .bit_clk_khz       = 512000 /// 512700   // 51.27 MHz * 10000
+};
+
+// XGA 1024x768 @ 60 Hz (standard VESA/DMT / XGA timings)
+const struct dvi_timing __dvi_const(dvi_timing_1024x768p_60hz) = {
+	.h_sync_polarity   = true,   // + HSYNC
+	.h_front_porch     = 24,
+	.h_sync_width      = 136,
+	.h_back_porch      = 160,
+	.h_active_pixels   = 1024,
+
+	.v_sync_polarity   = true,   // + VSYNC
+	.v_front_porch     = 3,
+	.v_sync_width      = 6,
+	.v_back_porch      = 29,
+	.v_active_lines    = 768,
+
+	.bit_clk_khz       = 650000  // 65.000 MHz pixel clock -> 650.000 kHz TMDS (pixel*10)
+};
+
 // Reduced-blanking (CVT) 720p. You aren't supposed to use reduced blanking
 // modes below 60 Hz, but I won't tell anyone (and it works on the monitors
 // I've tried). This nets a lower system clock than regular 720p30 (319 MHz)

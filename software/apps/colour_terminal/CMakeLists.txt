@@ -23,3 +23,7 @@ target_link_libraries(colour_terminal
 
 # create map/bin/hex file etc.
 pico_add_extra_outputs(colour_terminal)
+target_link_options(colour_terminal PRIVATE
+    -Wl,-Map=${CMAKE_CURRENT_BINARY_DIR}/colour_terminal.map
+)
+target_link_options(colour_terminal PRIVATE -Xlinker --print-memory-usage --data-sections)

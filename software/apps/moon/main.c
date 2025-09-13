@@ -87,15 +87,9 @@ int main() {
 	while (true) {
 		for (uint y = 0; y < FRAME_HEIGHT; ++y) {
 			const uint32_t *colourbuf = &((const uint32_t*)moon_img)[y * FRAME_WIDTH / 32];
-			uint32_t *tmdsbuf;
+			uint32_t *tmdsbuf = 0;
 			queue_remove_blocking_u32(&dvi0.q_tmds_free, &tmdsbuf);
-#ifndef USE_PIO_TMDS_ENCODE
 			tmds_encode_1bpp(colourbuf, tmdsbuf, FRAME_WIDTH);
-#else
-			dma_channel_set_read_addr(dma_chan_put, colourbuf, true);
-			dma_channel_set_write_addr(dma_chan_get, tmdsbuf, true);
-			dma_channel_wait_for_finish_blocking(dma_chan_get);
-#endif
 			queue_add_blocking_u32(&dvi0.q_tmds_valid, &tmdsbuf);
 		}
 	}

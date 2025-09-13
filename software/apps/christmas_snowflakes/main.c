@@ -10,6 +10,7 @@
 #include "hardware/sync.h"
 #include "hardware/gpio.h"
 #include "hardware/vreg.h"
+#include <hardware/structs/qmi.h>
 
 #include "dvi.h"
 #include "dvi_serialiser.h"
@@ -26,11 +27,24 @@
 #define GREEN_MASK 0x07e0u
 #define BLUE_MASK 0x001fu
 
+//#define MODE_640x480_60Hz
+ #define MODE_800x600_60Hz
+
+#if defined(MODE_640x480_60Hz)
 // DVDD 1.2V (1.1V seems ok too)
 #define FRAME_WIDTH 320
 #define FRAME_HEIGHT 240
 #define VREG_VSEL VREG_VOLTAGE_1_20
 #define DVI_TIMING dvi_timing_640x480p_60hz
+
+#elif defined(MODE_800x600_60Hz)
+// DVDD 1.3V, going downhill with a tailwind
+#define FRAME_WIDTH 400
+#define FRAME_HEIGHT 300
+#define VREG_VSEL VREG_VOLTAGE_1_30
+#define DVI_TIMING dvi_timing_800x600p_60hz
+
+#endif
 
 struct dvi_inst dvi0;
 
@@ -141,9 +155,28 @@ void __scratch_x("render") render_scanline(uint16_t *scanbuf, uint raster_y) {
 
 // -----------------------------------------------------------------------------
 
-int main() {
+void __not_in_flash() flash_timings() {
+	const int max_flash_freq = 88 * MHZ;
+	const int clock_hz = DVI_TIMING.bit_clk_khz * 1000;
+	int divisor = (clock_hz + max_flash_freq - 1) / max_flash_freq;
+	if (divisor == 1 && clock_hz > 100000000) {
+		divisor = 2;
+	}
+	int rxdelay = divisor;
+	if (clock_hz / divisor > 100000000) {
+		rxdelay += 1;
+	}
+	qmi_hw->m[0].timing = 0x60007000 |
+						rxdelay << QMI_M0_TIMING_RXDELAY_LSB |
+						divisor << QMI_M0_TIMING_CLKDIV_LSB;
+}
+
+int __not_in_flash("main") main() {
+	vreg_disable_voltage_limit();
 	vreg_set_voltage(VREG_VSEL);
-	sleep_ms(10);
+    flash_timings();
+    sleep_ms(100);
+
 	set_sys_clock_khz(DVI_TIMING.bit_clk_khz, true);
 
 	setup_default_uart();
@@ -159,6 +192,16 @@ int main() {
 
 	// DVI will start when first valid scanbuf is presented
 	multicore_launch_core1(core1_main);
+
+    gpio_init(PICO_DEFAULT_LED_PIN);
+    gpio_set_dir(PICO_DEFAULT_LED_PIN, GPIO_OUT);
+    /// main test DONE signal
+    for (int i = 0; i < 6; i++) {
+        sleep_ms(100);
+        gpio_put(PICO_DEFAULT_LED_PIN, true);
+        sleep_ms(100);
+        gpio_put(PICO_DEFAULT_LED_PIN, false);
+    }
 
     for (int i = 0; i < N_SPRITES; ++i) {
         // Initialise all sprites to out-of-bounds so update will sprinkle them from the top
