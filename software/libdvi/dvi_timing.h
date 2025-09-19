@@ -88,6 +88,8 @@ extern const struct dvi_timing dvi_timing_1024x768p_30hz_cvt;
 extern const struct dvi_timing dvi_timing_1024x768p_30hz_cvt_rb;
 extern const struct dvi_timing dvi_timing_1024x768p_30hz_cvt_rb2;
 extern const struct dvi_timing dvi_timing_1024x768p_60hz_custom;
+// XGA 1024x768 @ 60 Hz (standard VESA/DMT / XGA timings)
+extern const struct dvi_timing dvi_timing_1024x768p_60hz;
 
 extern const struct dvi_timing dvi_timing_800x600p_reduced_60hz;
 extern const struct dvi_timing dvi_timing_1280x720p_reduced_30hz;

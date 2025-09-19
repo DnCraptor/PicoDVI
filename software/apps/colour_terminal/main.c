@@ -28,9 +28,11 @@
 // Pick one:
 //#define MODE_640x480_60Hz
 // #define MODE_720x480_60Hz
- #define MODE_800x600_60Hz
+// #define MODE_800x600_60Hz
 // #define MODE_960x540p_60Hz
+ #define MODE_1024x768_60Hz
 // #define MODE_1280x720_30Hz
+
 
 #if defined(MODE_640x480_60Hz)
 // DVDD 1.2V (1.1V seems ok too)
@@ -59,6 +61,14 @@
 #define FRAME_HEIGHT 540
 #define VREG_VSEL VREG_VOLTAGE_1_25
 #define DVI_TIMING dvi_timing_960x540p_60hz
+
+#elif defined(MODE_1024x768_60Hz)
+// 1280x720p 30 Hz (nonstandard)
+// DVDD 1.25V (slower silicon may need the full 1.3, or just not work)
+#define FRAME_WIDTH 1024
+#define FRAME_HEIGHT 768
+#define VREG_VSEL VREG_VOLTAGE_1_65
+#define DVI_TIMING dvi_timing_1024x768p_60hz_custom
 
 #elif defined(MODE_1280x720_30Hz)
 // 1280x720p 30 Hz (nonstandard)
@@ -126,40 +136,18 @@ void core1_main() {
 		blank[i] = BLACK;
 	}
     while (true) {
-	    const uint32_t* bk_page2 = (const uint32_t*)bk_page;
-        for (uint y = 0; y < (FRAME_HEIGHT - 512) / 2; ++y) {
+        for (uint y = 0; y < FRAME_HEIGHT; ++y) {
             queue_remove_blocking_u32(&dvi0.q_tmds_free, &tmdsbuf);
-			memcpy(tmdsbuf, blank, sizeof(blank));
-            queue_add_blocking_u32(&dvi0.q_tmds_valid, &tmdsbuf);
-		}
-        for (uint y = 0; y < 512; ++y) {
-            queue_remove_blocking_u32(&dvi0.q_tmds_free, &tmdsbuf);
-			if (y & 1) { // duplicate each odd from prev. even
-				memcpy(tmdsbuf, last, sizeof(last));
-			} else {
-				/*
-				int plane = 1;
-				uint y2 = y >> 1;
+			for(int plane = 0; plane < 3; ++plane) {
 				tmds_encode_font_2bpp(
-					(const uint8_t*)&charbuf[y2 / FONT_CHAR_HEIGHT * CHAR_COLS],
-					(const uint32_t*)(&colourbuf[y2 / FONT_CHAR_HEIGHT * (COLOUR_PLANE_SIZE_WORDS / CHAR_ROWS) + plane * COLOUR_PLANE_SIZE_WORDS]),
+					(const uint8_t*)&charbuf[y / FONT_CHAR_HEIGHT * CHAR_COLS],
+					(const uint32_t*)(&colourbuf[y / FONT_CHAR_HEIGHT * (COLOUR_PLANE_SIZE_WORDS / CHAR_ROWS) + plane * COLOUR_PLANE_SIZE_WORDS]),
 					(tmdsbuf + plane * (FRAME_WIDTH / DVI_SYMBOLS_PER_WORD)),
 					FRAME_WIDTH,
-					(const uint8_t*)&font_8x8[y2 % FONT_CHAR_HEIGHT * FONT_N_CHARS] - FONT_FIRST_ASCII
+					(const uint8_t*)&font_8x8[y % FONT_CHAR_HEIGHT * FONT_N_CHARS] - FONT_FIRST_ASCII
 				);
-				*/
-				tmds_encode_1bpp_bk(bk_page2 + (y << 3), tmdsbuf, FRAME_WIDTH);
-				memcpy(tmdsbuf + DWORDS_PER_PLANE, tmdsbuf, BYTES_PER_PLANE);
-				memcpy(tmdsbuf + 2 * DWORDS_PER_PLANE, tmdsbuf, BYTES_PER_PLANE);
-//				tmds_encode_1bpp_bk((const uint32_t*)bk_page, (tmdsbuf + 2 * (FRAME_WIDTH / DVI_SYMBOLS_PER_WORD)), FRAME_WIDTH);
-				memcpy(last, tmdsbuf, sizeof(last));
 			}
 			queue_add_blocking_u32(&dvi0.q_tmds_valid, &tmdsbuf);
-		}
-        for (uint y = 0; y < (FRAME_HEIGHT - 512) / 2; ++y) {
-            queue_remove_blocking_u32(&dvi0.q_tmds_free, &tmdsbuf);
-			memcpy(tmdsbuf, blank, sizeof(blank));
-            queue_add_blocking_u32(&dvi0.q_tmds_valid, &tmdsbuf);
 		}
     }
 }
